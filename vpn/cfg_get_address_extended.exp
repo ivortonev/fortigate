@@ -1,0 +1,22 @@
+#!/bin/sh
+# \
+exec /usr/bin/expect -- "$0" ${1+"$@"}
+
+exp_version -exit 5.0
+
+set FW_HOST [lindex $argv 0]
+set FW_PORT [lindex $argv 1]
+set FW_USERNAME [lindex $argv 2]
+set FW_PASSWORD [lindex $argv 3]
+set VPN_USER [lindex $argv 4]
+
+log_user 0
+spawn ssh -p $FW_PORT $FW_USERNAME@$FW_HOST
+
+expect "password:"
+send "$FW_PASSWORD\r"
+expect "#"
+log_user 1
+send "show firewall address $VPN_USER \r"
+expect "#"
+send "quit \r"

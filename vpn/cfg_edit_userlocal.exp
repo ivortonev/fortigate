@@ -1,0 +1,37 @@
+#!/bin/sh
+# \
+exec /usr/bin/expect -- "$0" ${1+"$@"}
+
+exp_version -exit 5.0
+
+set FW_HOST [lindex $argv 0]
+set FW_PORT [lindex $argv 1]
+set FW_USERNAME [lindex $argv 2]
+set FW_PASSWORD [lindex $argv 3]
+set VPN_USER [lindex $argv 4]
+
+log_user 0
+spawn ssh -p $FW_PORT $FW_USERNAME@$FW_HOST
+
+expect "password:"
+send "$FW_PASSWORD\r"
+expect "#"
+send "config user local \r"
+expect "#"
+send "edit $VPN_USER \r"
+expect "#"
+send "set status enable \r"
+expect "#"
+send "set type ldap \r"
+expect "#"
+send "set two-factor disable \r"
+expect "#"
+send "set authtimeout 0 \r"
+expect "#"
+send "set auth-concurrent-override disable \r"
+expect "#"
+send "set ldap-server LDAP_VPN \r"
+expect "#"
+send "end \r"
+expect "#"
+send "quit \r"

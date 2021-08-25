@@ -1,0 +1,32 @@
+#!/bin/sh
+# \
+exec /usr/bin/expect -- "$0" ${1+"$@"}
+
+exp_version -exit 5.0
+
+set FW_HOST [lindex $argv 0]
+set FW_PORT [lindex $argv 1]
+set FW_USERNAME [lindex $argv 2]
+set FW_PASSWORD [lindex $argv 3]
+set VPN_SCHEDULE [lindex $argv 4]
+set VPN_START [lindex $argv 5]
+set VPN_END [lindex $argv 6]
+
+log_user 0
+
+spawn ssh -p $FW_PORT $FW_USERNAME@$FW_HOST
+
+expect "password:"
+send "$FW_PASSWORD\r"
+expect "#"
+send "config firewall schedule onetime \r"
+expect "#"
+send "edit $VPN_SCHEDULE \r"
+expect "#"
+send "set start 00:00 $VPN_START \r"
+expect "#"
+send "set end 23:59 $VPN_END \r"
+expect "#"
+send "end \r"
+expect "#"
+send "quit \r"
