@@ -13,7 +13,7 @@ MAX_CHARS - login max lenght
 
 
 File variaveis.cfg
-RCPTMAIL="email@domain.com"
+RCPTMAIL - admin email address
 AD_HOST - microsoft active directory global catalog port
 AD_BASEDN - microsoft active directory ldap base DN
 
