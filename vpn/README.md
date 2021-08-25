@@ -1,4 +1,5 @@
 # fortigate vpn
+<pre>
 
 File conf.cfg
 
@@ -15,3 +16,12 @@ File variaveis.cfg
 RCPTMAIL="email@domain.com"
 AD_HOST - microsoft active directory global catalog port
 AD_BASEDN - microsoft active directory ldap base DN
+
+
+Use:
+
+./vpn.sh login final-date workstation-ip-address
+
+./csvrun.sh file.csv
+
+</pre>
