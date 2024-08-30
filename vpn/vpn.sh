@@ -25,14 +25,6 @@ DATE_D=`$CMD_ECHO $DATE_END | $CMD_CUT -f 1 -d "/"`
 
 DATE_END_VPN="$DATE_Y/$DATE_M/$DATE_D"
 
-# Date check
-#DATE_END_TIMESTAMP=`$CMD_DATE -d $DATE_D/$DATE_M/$DATE_Y 23:59:59 +%s`
-#if [ $DATE_END_TIMESTAMP -gt $DEF_DATE_END_TIMESTAMP ] ; then
-#	$CMD_ECHO "A data final informada excede"; 
-#	$CMD_ECHO "o maximo permitido - 100 dias";
-#	exit 4;
-# end date check
-
 TMP_DIR=`$CMD_MKTEMP -d`
 readonly TMP_DIR
 
@@ -53,19 +45,21 @@ fi
 FW_VPN_SCHEDULE_NAME_DEFAULT="vpn_$VPN_USERNAME"
 FW_VPN_ADDRESS_NAME_DEFAULT="wks_$VPN_USERNAME"
 
+MAIL_TMP=`$CMD_MKTEMP`
+
 ./$SCRIPT_CFG_GET_USERLOCAL $FW_HOST $FW_PORT $FW_USERNAME $FW_PASSWORD $VPN_USERNAME >> $TMP_DIR/userlocal
 	STEP=$(($STEP+1))
 	$CMD_ECHO -n "[$STEP]Verificando conta local do firewall ... "
 	FW_VPN_USER_LOCAL=`$CMD_CAT $TMP_DIR/userlocal | $CMD_GREP edit | $CMD_CUT -f 2 -d "\"" | $CMD_TAIL -n 1 | $CMD_HEAD -n 1`
 	if [ -z $FW_VPN_USER_LOCAL ] ; then
-		$CMD_ECHO "!!! ATENCAO !!! A VPN desse usuario nao existe. Sera necessario colocar o usuario na lista de usuarios de VPN e criar a regra de firewall Executando criacao do objeto de usuario: $VPN_USERNAME "
+		$CMD_ECHO "!!! ATENCAO !!! A VPN desse usuario nao existe. Sera criar a regra de firewall Executando criacao do objeto de usuario: $VPN_USERNAME e acrescentando no mapeamento de usuarios"
 		$CMD_ECHO ""
 		./$SCRIPT_CFG_EDIT_USERLOCAL $FW_HOST $FW_PORT $FW_USERNAME $FW_PASSWORD $VPN_USERNAME
-		MAIL_01="0"
+		./$SCRIPT_CFG_ADD_MAPPING_USERLOCAL $FW_HOST $FW_PORT $FW_USERNAME $FW_PASSWORD $VPN_USERNAME
+		$CMD_ECHO "Prezado/a, a sua conexao de VPN foi criada." >> $MAIL_TMP
 	else
-		$CMD_ECHO "Conta local encontrada : $FW_VPN_USER_LOCAL"
+		$CMD_ECHO "Conta local encontrada : $VPN_USERNAME"
 		$CMD_ECHO ""
-		MAIL_01="1"
 	fi
 
 
@@ -77,11 +71,10 @@ FW_VPN_ADDRESS_NAME_DEFAULT="wks_$VPN_USERNAME"
 		$CMD_ECHO "Executando criacao do objeto de schedule: $FW_VPN_SCHEDULE_NAME_DEFAULT"
 		$CMD_ECHO ""
 		./$SCRIPT_CFG_EDIT_SCHEDULE_DATE  $FW_HOST $FW_PORT $FW_USERNAME $FW_PASSWORD $FW_VPN_SCHEDULE_NAME_DEFAULT $DEF_DATE_START $DATE_END_VPN
-		MAIL_02="0"
 	else
+		$CMD_ECHO "Prezado/a, a sua conexao de VPN foi renovada." >> $MAIL_TMP
 		$CMD_ECHO "Nome do schedule encontrado : $FW_VPN_SCHEDULE_NAME"
 		$CMD_ECHO ""
-		MAIL_02="1"
 		if [ $FW_VPN_SCHEDULE_NAME != $FW_VPN_SCHEDULE_NAME_DEFAULT ] ; then
 			STEP=$(($STEP+1))
 			$CMD_ECHO "[$STEP]Nome do objeto de schedule diferente do padrao. Renomeando para $FW_VPN_SCHEDULE_NAME_DEFAULT"
@@ -106,16 +99,14 @@ FW_VPN_ADDRESS_NAME_DEFAULT="wks_$VPN_USERNAME"
 ./$SCRIPT_CFG_GET_ADDRESS_NAME $FW_HOST $FW_PORT $FW_USERNAME $FW_PASSWORD $VPN_USERNAME >> $TMP_DIR/address_name
 	STEP=$(($STEP+1))
 	$CMD_ECHO -n "[$STEP]Verificando objeto de estacao ... "
-	FW_VPN_ADDRESS_NAME=`$CMD_CAT $TMP_DIR/address_name | $CMD_GREP edit | $CMD_CUT -f 2 -d "\"" | $CMD_TAIL -n 1 | $CMD_HEAD -n 1`
+	FW_VPN_ADDRESS_NAME=`$CMD_CAT $TMP_DIR/address_name | $CMD_GREP -i -v vpn | $CMD_GREP edit | $CMD_CUT -f 2 -d "\"" | $CMD_TAIL -n 1 | $CMD_HEAD -n 1`
 	if [ -z $FW_VPN_ADDRESS_NAME ] ; then
 		$CMD_ECHO "Executando criacao do objeto de host: $FW_VPN_ADDRESS_NAME_DEFAULT"
 		$CMD_ECHO ""
 		./$SCRIPT_CFG_EDIT_ADDRESS_IP $FW_HOST $FW_PORT $FW_USERNAME $FW_PASSWORD $FW_VPN_ADDRESS_NAME_DEFAULT $WKS_IP 
-		MAIL_03="0"
 	else
 		$CMD_ECHO "Nome do objeto de estacao encontrado: $FW_VPN_ADDRESS_NAME"
 		$CMD_ECHO ""
-		MAIL_03="1"
 		if [ $FW_VPN_ADDRESS_NAME != $FW_VPN_ADDRESS_NAME_DEFAULT ] ; then
 			STEP=$(($STEP+1))
 			$CMD_ECHO "[$STEP]Nome do objeto de objeto de estacao diferente do padrao. Renomeando para $FW_VPN_ADDRESS_NAME_DEFAULT"
@@ -135,25 +126,22 @@ FW_VPN_ADDRESS_NAME_DEFAULT="wks_$VPN_USERNAME"
 		fi
 	fi
 
-if [ $MAIL_01 -eq 1 ] && [ $MAIL_02 -eq 1 ] && [ $MAIL_03 -eq 1 ] ; then
-	MAIL_TMP=`$CMD_MKTEMP`
-	$CMD_ECHO "Prezado/a, a sua conexao de VPN foi renovada." >> $MAIL_TMP
-	$CMD_ECHO " " >> $MAIL_TMP
-	$CMD_ECHO "Lembrando que o login e case sensitive, portanto se o seu login tenha letras maiusculas o mesmo deve ser informado com as letras na caixa correspondente:" >> $MAIL_TMP
-	$CMD_ECHO " " >> $MAIL_TMP
-	$CMD_ECHO "Usuario: $FW_VPN_USER_LOCAL" >> $MAIL_TMP
-	$CMD_ECHO "Senha: a senha de login na estacao de trabalho do MEC " >> $MAIL_TMP
-	$CMD_ECHO "IP da estação de trabalho para realizar o acesso remoto: $WKS_IP " >> $MAIL_TMP
-	$CMD_ECHO "Vencimento: $DATE_END 23:59 " >> $MAIL_TMP
-	$CMD_ECHO " " >> $MAIL_TMP
-	$CMD_ECHO "No cliente de VPN Forticlient no campo de usuario e necessario informar apenas o login de usuario." >> $MAIL_TMP
-        $CMD_ECHO "No cliente de acesso a area de trabalho remota no campo de usuario e necessário acrescentar \"mec\" no nome do usuario, ficando \"mec\login\". " >> $MAIL_TMP
-	$CMD_ECHO " " >> $MAIL_TMP
-	$CMD_ECHO " " >> $MAIL_TMP
-	$CMD_ECHO "------- " >> $MAIL_TMP
-	$CMD_ECHO "cseg@mec.gov.br" >> $MAIL_TMP
-	$CMD_MAIL $MAIL_ADDR,$RCPTMAIL -s "Renovacao de acesso VPN" < $MAIL_TMP
-	$CMD_RM -f $MAIL_TMP
-fi
+$CMD_ECHO " " >> $MAIL_TMP
+$CMD_ECHO "Lembrando que o login e case sensitive, portanto se o seu login tenha letras maiusculas o mesmo deve ser informado com as letras na caixa correspondente:" >> $MAIL_TMP
+$CMD_ECHO " " >> $MAIL_TMP
+#$CMD_ECHO "Usuario: $FW_VPN_USER_LOCAL" >> $MAIL_TMP
+$CMD_ECHO "Usuario: $VPN_USERNAME" >> $MAIL_TMP
+$CMD_ECHO "Senha: a senha de login na estacao de trabalho " >> $MAIL_TMP
+$CMD_ECHO "IP da estação de trabalho para realizar o acesso remoto: $WKS_IP " >> $MAIL_TMP
+$CMD_ECHO "Vencimento: $DATE_END 23:59 " >> $MAIL_TMP
+$CMD_ECHO " " >> $MAIL_TMP
+$CMD_ECHO "No cliente de VPN Forticlient no campo de usuario e necessario informar apenas o login de usuario." >> $MAIL_TMP
+$CMD_ECHO " " >> $MAIL_TMP
+$CMD_ECHO "O cliente de VPN para estacoes Windows pode ser baixado de https://links.fortinet.com/forticlient/win/vpnagent" >> $MAIL_TMP
+$CMD_ECHO " " >> $MAIL_TMP
+$CMD_ECHO "O cliente de VPN para estacoes Mac pode ser baixado de https://links.fortinet.com/forticlient/mac/vpnagent" >> $MAIL_TMP
+$CMD_ECHO " " >> $MAIL_TMP
+$CMD_MAIL $MAIL_ADDR,$RCPTMAIL -s "Acesso VPN" < $MAIL_TMP
+$CMD_RM -f $MAIL_TMP
 
 $CMD_RM -rf $TMP_DIR
